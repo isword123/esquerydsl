@@ -67,6 +67,8 @@ type QueryDoc struct {
 	Or          []QueryItem
 	Filter      []QueryItem
 	PageSize    int
+	NestPath    string
+	NestDoc     *QueryDoc
 }
 
 // QueryItem is used to construct the specific query type json bodies
@@ -74,9 +76,10 @@ type QueryDoc struct {
 // the Field attr should be the document attr we want to query against
 // and the Value attr should be the actual search term
 type QueryItem struct {
-	Field string
-	Value interface{}
-	Type  QueryType
+	Field      string
+	Value      interface{}
+	Type       QueryType
+	NestedPath string
 }
 
 // WrapQueryItems is to build nested queries
@@ -118,7 +121,13 @@ type queryReqDoc struct {
 }
 
 type queryWrap struct {
-	Bool boolWrap `json:"bool"`
+	Bool   *boolWrap   `json:"bool,omitempty"`
+	Nested *nestedWrap `json:"nested,omitempty"`
+}
+
+type nestedWrap struct {
+	Path  string    `json:"path"`
+	Query queryWrap `json:"query"`
 }
 
 type boolWrap struct {
@@ -129,9 +138,10 @@ type boolWrap struct {
 }
 
 type leafQuery struct {
-	Type  QueryType
-	Name  string
-	Value interface{}
+	Type       QueryType
+	Name       string
+	Value      interface{}
+	NestedPath string
 }
 
 func (q leafQuery) handleMarshalType(queryType string) ([]byte, error) {
@@ -164,7 +174,7 @@ func (q leafQuery) handleMarshalQueryString(queryType string) ([]byte, error) {
 }
 
 func getWrappedQuery(query QueryDoc) queryWrap {
-	boolDoc := boolWrap{}
+	boolDoc := &boolWrap{}
 	if len(query.And) > 0 {
 		boolDoc.AndList = updateList(query.And)
 	}
@@ -177,7 +187,20 @@ func getWrappedQuery(query QueryDoc) queryWrap {
 	if len(query.Filter) > 0 {
 		boolDoc.FilterList = updateList(query.Filter)
 	}
-	return queryWrap{Bool: boolDoc}
+	qw := queryWrap{}
+
+	if query.NestDoc != nil {
+		qw.Nested = &nestedWrap{
+			Path:  query.NestDoc.NestPath,
+			Query: getWrappedQuery(*query.NestDoc),
+		}
+	}
+
+	if len(boolDoc.AndList) > 0 || len(boolDoc.OrList) > 0 || len(boolDoc.NotList) > 0 || len(boolDoc.FilterList) > 0 {
+		qw.Bool = boolDoc
+	}
+
+	return qw
 }
 
 func (q leafQuery) MarshalJSON() ([]byte, error) {
@@ -198,9 +221,10 @@ func updateList(queryItems []QueryItem) []leafQuery {
 	leafQueries := make([]leafQuery, 0)
 	for _, item := range queryItems {
 		leafQueries = append(leafQueries, leafQuery{
-			Type:  item.Type,
-			Name:  item.Field,
-			Value: item.Value,
+			Type:       item.Type,
+			Name:       item.Field,
+			Value:      item.Value,
+			NestedPath: item.NestedPath,
 		})
 	}
 	return leafQueries

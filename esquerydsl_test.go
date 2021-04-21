@@ -132,3 +132,52 @@ func TestFilterQuery(t *testing.T) {
 		t.Errorf("\nWant: %q\nHave: %q", expected, string(body))
 	}
 }
+
+func TestNestedQuery(t *testing.T) {
+	nestedItem := WrapQueryItems("and", []QueryItem{
+		{
+			Field: "date.year",
+			Value: 2001,
+			Type:  Term,
+		},
+		{
+			Field: "date.month",
+			Value: 1002,
+			Type:  Term,
+		},
+	}...)
+	doc := QueryDoc{
+		Index: "123",
+		NestDoc: &QueryDoc{
+			And: []QueryItem{
+				{
+					Field: "name",
+					Value: "name1",
+					Type:  Term,
+				},
+				{
+					Field: "password",
+					Value: "password1",
+					Type:  Term,
+				},
+			},
+			NestPath: "hello",
+		},
+		And: []QueryItem{
+			{
+				Field: "user.country",
+				Value: 1001,
+				Type:  Term,
+			},
+			nestedItem,
+		},
+	}
+
+	// bs, _ := json.MarshalIndent(doc, "", "  ")
+
+	bs, _ := json.Marshal(doc)
+	expected := `{"query":{"bool":{"must":[{"term":{"user.country":1001}},{"bool":{"must":[{"term":{"date.year":2001}},{"term":{"date.month":1002}}]}}]},"nested":{"path":"hello","query":{"bool":{"must":[{"term":{"name":"name1"}},{"term":{"password":"password1"}}]}}}}}`
+	if string(bs) != expected {
+		t.Errorf("\nWant: %q\nHave: %q", expected, string(bs))
+	}
+}
