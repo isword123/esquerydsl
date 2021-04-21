@@ -3,6 +3,7 @@ package esquerydsl
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -180,4 +181,20 @@ func TestNestedQuery(t *testing.T) {
 	if string(bs) != expected {
 		t.Errorf("\nWant: %q\nHave: %q", expected, string(bs))
 	}
+
+	subjectItem := QueryItem{Field: "subject.org_contact_name", Value: "xx", Type: Match}
+	webItem := QueryItem{Field: "web.site_person_name", Value: "xx", Type: Match}
+	nestedItem1 := QueryItem{
+		NestedDoc: &QueryDoc{
+			NestPath: "web",
+			And:      []QueryItem{webItem},
+		},
+	}
+	anotherDoc := &QueryDoc{
+		Index: "hello",
+		And:   []QueryItem{subjectItem, nestedItem1},
+	}
+
+	bs, _ = json.MarshalIndent(anotherDoc, "", "  ")
+	fmt.Println(string(bs))
 }

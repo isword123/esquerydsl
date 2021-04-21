@@ -67,7 +67,7 @@ type QueryDoc struct {
 	Or          []QueryItem
 	Filter      []QueryItem
 	PageSize    int
-	NestPath    string
+	NestPath    string // 只在 NestDoc 下有效果
 	NestDoc     *QueryDoc
 }
 
@@ -76,10 +76,10 @@ type QueryDoc struct {
 // the Field attr should be the document attr we want to query against
 // and the Value attr should be the actual search term
 type QueryItem struct {
-	Field      string
-	Value      interface{}
-	Type       QueryType
-	NestedPath string
+	Field     string
+	Value     interface{}
+	Type      QueryType
+	NestedDoc *QueryDoc // 专门针对 nested 节点, 其他字段都不重要
 }
 
 // WrapQueryItems is to build nested queries
@@ -138,10 +138,10 @@ type boolWrap struct {
 }
 
 type leafQuery struct {
-	Type       QueryType
-	Name       string
-	Value      interface{}
-	NestedPath string
+	Type      QueryType
+	Name      string
+	Value     interface{}
+	NestedDoc *QueryDoc // 针对 nested 节点, 需要和其他叶子节点组合时的情况
 }
 
 func (q leafQuery) handleMarshalType(queryType string) ([]byte, error) {
@@ -154,6 +154,16 @@ func (q leafQuery) handleMarshalType(queryType string) ([]byte, error) {
 
 	if q.Type == QueryString {
 		return q.handleMarshalQueryString(queryType)
+	}
+
+	// 针对 nested 节点
+	if q.NestedDoc != nil {
+		qw := queryWrap{}
+		qw.Nested = &nestedWrap{
+			Path:  q.NestedDoc.NestPath,
+			Query: getWrappedQuery(*q.NestedDoc),
+		}
+		return json.Marshal(qw)
 	}
 
 	return json.Marshal(map[string]interface{}{
@@ -221,10 +231,10 @@ func updateList(queryItems []QueryItem) []leafQuery {
 	leafQueries := make([]leafQuery, 0)
 	for _, item := range queryItems {
 		leafQueries = append(leafQueries, leafQuery{
-			Type:       item.Type,
-			Name:       item.Field,
-			Value:      item.Value,
-			NestedPath: item.NestedPath,
+			Type:      item.Type,
+			Name:      item.Field,
+			Value:     item.Value,
+			NestedDoc: item.NestedDoc,
 		})
 	}
 	return leafQueries
