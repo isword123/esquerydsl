@@ -122,10 +122,12 @@ type queryReqDoc struct {
 }
 
 type queryWrap struct {
-	Bool     *boolWrap              `json:"bool,omitempty"`
-	Nested   *nestedWrap            `json:"nested,omitempty"`
-	MatchAll map[string]interface{} `json:"match_all,omitempty"`
+	Bool     *boolWrap       `json:"bool,omitempty"`
+	Nested   *nestedWrap     `json:"nested,omitempty"`
+	MatchAll *MatchAllObject `json:"match_all,omitempty"`
 }
+
+type MatchAllObject map[string]interface{}
 
 type nestedWrap struct {
 	Path  string    `json:"path"`
@@ -209,7 +211,8 @@ func getWrappedQuery(query QueryDoc) queryWrap {
 	}
 
 	if query.MatchAll != nil {
-		qw.MatchAll = query.MatchAll
+		match := MatchAllObject(query.MatchAll)
+		qw.MatchAll = &match
 	}
 
 	if len(boolDoc.AndList) > 0 || len(boolDoc.OrList) > 0 || len(boolDoc.NotList) > 0 || len(boolDoc.FilterList) > 0 {
