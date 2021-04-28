@@ -69,6 +69,7 @@ type QueryDoc struct {
 	PageSize    int
 	NestPath    string // 只在 NestDoc 下有效果
 	NestDoc     *QueryDoc
+	MatchAll    map[string]interface{}
 }
 
 // QueryItem is used to construct the specific query type json bodies
@@ -121,8 +122,9 @@ type queryReqDoc struct {
 }
 
 type queryWrap struct {
-	Bool   *boolWrap   `json:"bool,omitempty"`
-	Nested *nestedWrap `json:"nested,omitempty"`
+	Bool     *boolWrap              `json:"bool,omitempty"`
+	Nested   *nestedWrap            `json:"nested,omitempty"`
+	MatchAll map[string]interface{} `json:"match_all,omitempty"`
 }
 
 type nestedWrap struct {
@@ -204,6 +206,10 @@ func getWrappedQuery(query QueryDoc) queryWrap {
 			Path:  query.NestDoc.NestPath,
 			Query: getWrappedQuery(*query.NestDoc),
 		}
+	}
+
+	if query.MatchAll != nil {
+		qw.MatchAll = query.MatchAll
 	}
 
 	if len(boolDoc.AndList) > 0 || len(boolDoc.OrList) > 0 || len(boolDoc.NotList) > 0 || len(boolDoc.FilterList) > 0 {
