@@ -70,6 +70,8 @@ type QueryDoc struct {
 	NestPath    string // 只在 NestDoc 下有效果
 	NestDoc     *QueryDoc
 	MatchAll    map[string]interface{}
+	// https://www.elastic.co/guide/en/elasticsearch/reference/master/search-your-data.html#track-total-hits
+	TrackTotalHits bool
 }
 
 // QueryItem is used to construct the specific query type json bodies
@@ -114,11 +116,12 @@ func WrapQueryItems(itemType string, items ...QueryItem) QueryItem {
 //     }
 // }
 type queryReqDoc struct {
-	Query       queryWrap           `json:"query,omitempty"`
-	From        int                 `json:"from,omitempty"`
-	Size        int                 `json:"size,omitempty"`
-	Sort        []map[string]string `json:"sort,omitempty"`
-	SearchAfter []string            `json:"search_after,omitempty"`
+	Query          queryWrap           `json:"query,omitempty"`
+	From           int                 `json:"from,omitempty"`
+	Size           int                 `json:"size,omitempty"`
+	Sort           []map[string]string `json:"sort,omitempty"`
+	SearchAfter    []string            `json:"search_after,omitempty"`
+	TrackTotalHits bool                `json:"track_total_hits,omitempty"`
 }
 
 type queryWrap struct {
@@ -253,11 +256,12 @@ func updateList(queryItems []QueryItem) []leafQuery {
 // valid and spec compliant JSON representation
 func (query QueryDoc) MarshalJSON() ([]byte, error) {
 	queryReq := queryReqDoc{
-		Query:       getWrappedQuery(query),
-		Size:        query.Size,
-		From:        query.From,
-		Sort:        query.Sort,
-		SearchAfter: query.SearchAfter,
+		Query:          getWrappedQuery(query),
+		Size:           query.Size,
+		From:           query.From,
+		Sort:           query.Sort,
+		SearchAfter:    query.SearchAfter,
+		TrackTotalHits: query.TrackTotalHits,
 	}
 
 	requestBody, err := json.Marshal(queryReq)
